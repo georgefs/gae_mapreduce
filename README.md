@@ -96,6 +96,82 @@ class InputReader(model.JsonMixin):
       raise BadReaderParamsError("Input reader class mismatch")
  ```
  
+ /mapreduce/status.py 80~152
+ ```python
+ 
+class MapReduceYaml(validation.Validated):
+  """Root class for mapreduce.yaml.
+
+  File format:
+
+  mapreduce:
+  - name: <mapreduce_name>
+    mapper:
+      - input_reader: google.appengine.ext.mapreduce.DatastoreInputReader
+      - handler: path_to_my.MapperFunction
+      - params:
+        - name: foo
+          default: bar
+        - name: blah
+          default: stuff
+      - params_validator: path_to_my.ValidatorFunction
+
+  Where
+    mapreduce_name: The name of the mapreduce. Used for UI purposes.
+    mapper_handler_spec: Full <module_name>.<function_name/class_name> of
+      mapper handler. See MapreduceSpec class documentation for full handler
+      specification.
+    input_reader: Full <module_name>.<function_name/class_name> of the
+      InputReader sub-class to use for the mapper job.
+    params: A list of optional parameter names and optional default values
+      that may be supplied or overridden by the user running the job.
+    params_validator is full <module_name>.<function_name/class_name> of
+      a callable to validate the mapper_params after they are input by the
+      user running the job.
+  """
+
+  ATTRIBUTES = {
+      "mapreduce": validation.Optional(validation.Repeated(MapreduceInfo))
+  }
+
+  @staticmethod
+  def to_dict(mapreduce_yaml):
+    """Converts a MapReduceYaml file into a JSON-encodable dictionary.
+
+    For use in user-visible UI and internal methods for interfacing with
+    user code (like param validation). as a list
+
+    Args:
+      mapreduce_yaml: The Pyton representation of the mapreduce.yaml document.
+
+    Returns:
+      A list of configuration dictionaries.
+    """
+    all_configs = []
+    for config in mapreduce_yaml.mapreduce:
+      out = {
+          "name": config.name,
+          "mapper_input_reader": config.mapper.input_reader,
+          "mapper_handler": config.mapper.handler,
+      }
+      if config.mapper.params_validator:
+        out["mapper_params_validator"] = config.mapper.params_validator
+      if config.mapper.params:
+        param_defaults = {}
+        for param in config.mapper.params:
+          param_defaults[param.name] = param.default or param.value
+        out["mapper_params"] = param_defaults
+      if config.params:
+        param_defaults = {}
+        for param in config.params:
+          param_defaults[param.name] = param.default or param.value
+        out["params"] = param_defaults
+      if config.mapper.output_writer:
+        out["mapper_output_writer"] = config.mapper.output_writer
+      all_configs.append(out)
+
+    return all_configs
+```
  
  
  
